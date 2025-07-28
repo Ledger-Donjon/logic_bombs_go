@@ -41,8 +41,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("✅ [+] Unmarshal succeeded!")
-	fmt.Println("✅ [+] Transaction parsed successfully - gas field was present")
+	fmt.Println("[+] Unmarshal succeeded!")
+	fmt.Println("[+] Transaction parsed successfully - gas field was present")
 	fmt.Println("")
 	fmt.Println("   This JSON contains the required 'gas' field, so no panic occurred.")
 	fmt.Println("   To trigger the panic, remove the 'gas' field from the JSON.")
