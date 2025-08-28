@@ -17,7 +17,12 @@ zorya /home/x/Documents/zorya/tests/programs/panic-index/panic-index --mode main
 zorya /home/x/Documents/go-exploits-database/tinygo-compiler/theoretical/panic-index/panic-index --mode function 0x22c110 --lang go --compiler tinygo --arg "1" --negate-path-exploration
 
 **************************************
-zorya /home/x/Documents/go-exploits-database/tinygo-compiler/theoretical/broken-calculator/broken-calculator-tinygo --mode main 0x000000000022f130 --lang go --compiler tinygo --arg "2 + 3" --negate-path-exploration
 
+zorya /home/kgorna/Documents/go-exploits-database/tinygo-compiler/theoretical/invalid-shift/invalid-shift --mode main 0x000000000022afe0 --lang go --compiler tinygo --arg "100" --negate-path-exploration
 
+zorya /home/kgorna/Documents/go-exploits-database/tinygo-compiler/theoretical/invalid-shift/invalid-shift --mode function 0x22af70 --lang go --compiler tinygo --arg "10" --negate-path-exploration
+
+**************************************
+
+zorya /home/kgorna/go-exploits-database/tinygo-compiler/real-world/omni-vuln4/omni-vuln4 --mode function 0x22fda0 --lang go --compiler tinygo --arg "a b c d e f g --indices 5" --negate-path-exploration
 ```
