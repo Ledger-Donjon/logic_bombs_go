@@ -9,227 +9,193 @@ from miasm.ir.ir import IRCFG
 from future.utils import viewvalues
 
 # Binary path and entry point
-binary_path = "../../crashme"
-main_address = 0x000000000022af70
+binary_path = "target_binary"
+main_address = 0x400000
 
-def detect_null_pointer_patterns(ircfg_map):
+def analyze_memory_operations(ircfg_map):
     """
-    Generic nil/null pointer dereference detection without assumptions
+    Analyze all memory operations for potential vulnerabilities
     """
-    null_dereferences = []
-    potential_null_flows = []
+    memory_ops = []
     
     for addr, ircfg in ircfg_map.items():
         for lbl, irblock in ircfg.blocks.items():
             for assignblk in irblock:
                 for dst, src in assignblk.items():
                     
-                    # Pattern 1: Direct null pointer dereference - write to memory address 0
-                    if isinstance(dst, ExprMem) and isinstance(dst.ptr, ExprInt):
-                        if dst.ptr.arg == 0:
-                            null_dereferences.append({
-                                'type': 'direct_null_write',
-                                'block': lbl,
-                                'instruction': assignblk,
-                                'address': dst.ptr.arg,
-                                'cfg_addr': addr
-                            })
-                    
-                    # Pattern 2: Write through a register that could be null
-                    elif isinstance(dst, ExprMem) and isinstance(dst.ptr, ExprId):
-                        potential_null_flows.append({
-                            'type': 'register_deref',
-                            'register': str(dst.ptr),
-                            'block': lbl,
-                            'instruction': assignblk,
-                            'cfg_addr': addr
-                        })
-                    
-                    # Pattern 3: Assignment of null/zero to pointer registers
-                    elif isinstance(dst, ExprId) and isinstance(src, ExprInt):
-                        if src.arg == 0:
-                            potential_null_flows.append({
-                                'type': 'null_assignment',
-                                'register': str(dst),
-                                'block': lbl,
-                                'instruction': assignblk,
-                                'cfg_addr': addr
-                            })
-    
-    return null_dereferences, potential_null_flows
-
-def find_dangerous_memory_operations(ircfg_map):
-    """
-    Find memory operations that could be dangerous (writes to low addresses, null derefs, etc.)
-    """
-    dangerous_operations = []
-    
-    for addr, ircfg in ircfg_map.items():
-        for lbl, irblock in ircfg.blocks.items():
-            for assignblk in irblock:
-                for dst, src in assignblk.items():
-                    # Check for memory writes
+                    # Memory writes
                     if isinstance(dst, ExprMem):
-                        ptr = dst.ptr
-                        
-                        # Direct write to very low address (potential null/near-null deref)
-                        if isinstance(ptr, ExprInt):
-                            if ptr.arg < 0x1000:  # Low memory addresses
-                                dangerous_operations.append({
-                                    'type': 'low_memory_write',
-                                    'address': ptr.arg,
-                                    'block': lbl,
-                                    'instruction': assignblk,
-                                    'cfg_addr': addr,
-                                    'severity': 'HIGH' if ptr.arg == 0 else 'MEDIUM'
-                                })
-                        
-                        # Write through register that could be null
-                        elif isinstance(ptr, ExprId):
-                            dangerous_operations.append({
-                                'type': 'register_deref',
-                                'register': str(ptr),
-                                'block': lbl,
-                                'instruction': assignblk,
-                                'cfg_addr': addr,
-                                'severity': 'MEDIUM'
-                            })
+                        memory_ops.append({
+                            'type': 'memory_write',
+                            'address': str(dst.ptr),
+                            'value': str(src),
+                            'block': lbl,
+                            'instruction': assignblk,
+                            'cfg_addr': addr
+                        })
+                    
+                    # Memory reads
+                    elif isinstance(src, ExprMem):
+                        memory_ops.append({
+                            'type': 'memory_read',
+                            'address': str(src.ptr),
+                            'destination': str(dst),
+                            'block': lbl,
+                            'instruction': assignblk,
+                            'cfg_addr': addr
+                        })
     
-    return dangerous_operations
+    return memory_ops
 
-def find_conditional_paths(ircfg_map):
+def analyze_arithmetic_operations(ircfg_map):
     """
-    Find conditional branches and the paths they create
+    Analyze arithmetic operations that could lead to vulnerabilities
     """
-    conditional_paths = []
+    arithmetic_ops = []
     
     for addr, ircfg in ircfg_map.items():
         for lbl, irblock in ircfg.blocks.items():
             for assignblk in irblock:
                 for dst, src in assignblk.items():
-                    # Look for conditional expressions
-                    if isinstance(src, ExprCond):
-                        conditional_paths.append({
+                    
+                    if isinstance(src, ExprOp):
+                        arithmetic_ops.append({
+                            'operation': src.op,
+                            'operands': [str(arg) for arg in src.args],
+                            'result': str(dst),
                             'block': lbl,
-                            'condition': src.cond,
-                            'true_expr': src.src1,
-                            'false_expr': src.src2,
                             'instruction': assignblk,
                             'cfg_addr': addr
                         })
+    
+    return arithmetic_ops
+
+def analyze_comparisons(ircfg_map):
+    """
+    Analyze all comparison operations
+    """
+    comparisons = []
+    
+    for addr, ircfg in ircfg_map.items():
+        for lbl, irblock in ircfg.blocks.items():
+            for assignblk in irblock:
+                for dst, src in assignblk.items():
                     
-                    # Look for comparison operations
-                    elif isinstance(src, ExprOp) and src.op in ['==', '!=', '<', '>', '<=', '>=', 'CMP']:
-                        # Extract comparison values
+                    # Direct comparisons
+                    if isinstance(src, ExprOp) and src.op in ['==', '!=', '<', '>', '<=', '>=', 'CMP']:
                         operands = []
                         for arg in src.args:
                             if isinstance(arg, ExprInt):
-                                operands.append(('immediate', arg.arg))
+                                operands.append(('constant', arg.arg))
                             elif isinstance(arg, ExprId):
                                 operands.append(('register', str(arg)))
                             else:
                                 operands.append(('expression', str(arg)))
                         
-                        conditional_paths.append({
-                            'block': lbl,
+                        comparisons.append({
                             'operation': src.op,
                             'operands': operands,
+                            'result': str(dst),
+                            'block': lbl,
+                            'instruction': assignblk,
+                            'cfg_addr': addr
+                        })
+                    
+                    # Conditional expressions
+                    elif isinstance(src, ExprCond):
+                        comparisons.append({
+                            'operation': 'conditional',
+                            'condition': str(src.cond),
+                            'true_expr': str(src.src1),
+                            'false_expr': str(src.src2),
+                            'result': str(dst),
+                            'block': lbl,
                             'instruction': assignblk,
                             'cfg_addr': addr
                         })
     
-    return conditional_paths
+    return comparisons
 
-def trace_data_flow(ircfg_map):
+def analyze_function_calls(asm_cfg_map):
     """
-    Trace data flow to understand how values move through registers and memory
-    """
-    data_flows = []
-    register_assignments = {}
-    
-    for addr, ircfg in ircfg_map.items():
-        for lbl, irblock in ircfg.blocks.items():
-            for assignblk in irblock:
-                for dst, src in assignblk.items():
-                    # Track register assignments
-                    if isinstance(dst, ExprId):
-                        reg_name = str(dst)
-                        register_assignments[reg_name] = {
-                            'source': src,
-                            'block': lbl,
-                            'cfg_addr': addr
-                        }
-                        
-                        # Check if register is being set to zero or null
-                        if isinstance(src, ExprInt) and src.arg == 0:
-                            data_flows.append({
-                                'type': 'null_assignment',
-                                'register': reg_name,
-                                'block': lbl,
-                                'cfg_addr': addr
-                            })
-    
-    return data_flows, register_assignments
-
-def analyze_function_calls(ircfg_map, asm_cfg_map):
-    """
-    Analyze function calls and their relationships
+    Analyze function calls and their targets
     """
     function_calls = []
     
     for addr, asmcfg in asm_cfg_map.items():
         for block in asmcfg.blocks:
-            # Look for call instructions
             for instr in block.lines:
-                if instr.name.startswith('CALL') or 'call' in instr.name.lower():
+                instr_str = str(instr).lower()
+                
+                if 'call' in instr_str:
                     function_calls.append({
-                        'caller_addr': addr,
                         'instruction': str(instr),
-                        'block': block,
+                        'caller_addr': addr,
+                        'block_addr': block.loc_key,
                     })
     
     return function_calls
 
-def correlate_vulnerabilities(dangerous_ops, conditional_paths, data_flows):
+def detect_dangerous_patterns(memory_ops, arithmetic_ops, comparisons, function_calls):
     """
-    Correlate dangerous operations with conditional paths to find vulnerability triggers
+    Detect potentially dangerous patterns from the analysis results
     """
     vulnerabilities = []
     
-    for dangerous_op in dangerous_ops:
-        # Look for conditionals in the same or nearby blocks
-        related_conditions = []
-        
-        for condition in conditional_paths:
-            # Check if condition is in same CFG or related block
-            if condition['cfg_addr'] == dangerous_op['cfg_addr']:
-                related_conditions.append(condition)
-        
-        if related_conditions:
+    # Pattern 1: Memory writes to low addresses
+    for mem_op in memory_ops:
+        if mem_op['type'] == 'memory_write':
+            addr_str = mem_op['address']
+            if addr_str.isdigit() and int(addr_str) < 0x1000:
+                vulnerabilities.append({
+                    'type': 'low_memory_write',
+                    'severity': 'HIGH' if int(addr_str) == 0 else 'MEDIUM',
+                    'details': mem_op
+                })
+    
+    # Pattern 2: Arithmetic operations that could overflow
+    for arith_op in arithmetic_ops:
+        if arith_op['operation'] in ['+', '-', '*']:
             vulnerabilities.append({
-                'dangerous_operation': dangerous_op,
-                'triggering_conditions': related_conditions,
-                'vulnerability_type': 'conditional_vulnerability'
+                'type': 'arithmetic_operation',
+                'severity': 'LOW',
+                'details': arith_op
             })
-        else:
+    
+    # Pattern 3: Comparisons with interesting constants
+    for comp in comparisons:
+        if 'operands' in comp:
+            for op_type, op_value in comp['operands']:
+                if op_type == 'constant':
+                    vulnerabilities.append({
+                        'type': 'comparison_with_constant',
+                        'severity': 'INFO',
+                        'constant_value': op_value,
+                        'details': comp
+                    })
+    
+    # Pattern 4: Function calls that might be dangerous
+    for call in function_calls:
+        call_str = call['instruction'].lower()
+        if any(keyword in call_str for keyword in ['panic', 'abort', 'exit', 'runtime']):
             vulnerabilities.append({
-                'dangerous_operation': dangerous_op,
-                'triggering_conditions': [],
-                'vulnerability_type': 'unconditional_vulnerability'
+                'type': 'dangerous_function_call',
+                'severity': 'MEDIUM',
+                'details': call
             })
     
     return vulnerabilities
 
 def disassemble_and_analyze(machine, mdis, start_addr, follow_calls=True):
     """
-    Comprehensive disassembly and analysis
+    Generic disassembly and analysis
     """
     todo = [(mdis, start_addr)]
     done = set()
     ircfg_map = {}
     asm_cfg_map = {}
     
-    print(f"Starting comprehensive analysis from: {hex(start_addr)}")
+    print(f"Starting analysis from: {hex(start_addr)}")
     
     while todo:
         mdis, addr = todo.pop(0)
@@ -270,7 +236,7 @@ def main():
         if len(sys.argv) > 2:
             main_address = int(sys.argv[2], 16)
     
-    print("=== MIASM Vulnerability Discovery ===")
+    print("=== Generic MIASM Vulnerability Scanner ===")
     print(f"Target: {binary_path}")
     print(f"Entry point: {hex(main_address)}")
     
@@ -288,8 +254,8 @@ def main():
     
     mdis = machine.dis_engine(container.bin_stream, loc_db=loc_db)
     
-    # Perform comprehensive analysis
-    print("\n=== Phase 1: Disassembly and IR Generation ===")
+    # Perform analysis
+    print("\n=== Phase 1: Disassembly ===")
     ircfg_map, asm_cfg_map = disassemble_and_analyze(machine, mdis, main_address)
     
     if not ircfg_map:
@@ -298,95 +264,61 @@ def main():
     
     print(f"SUCCESS: Analyzed {len(ircfg_map)} code segments")
     
-    # Phase 2: Null pointer dereference detection
-    print("\n=== Phase 2: Null Pointer Dereference Detection ===")
-    null_derefs, potential_nulls = detect_null_pointer_patterns(ircfg_map)
+    # Phase 2: Memory operations
+    print("\n=== Phase 2: Memory Operations Analysis ===")
+    memory_ops = analyze_memory_operations(ircfg_map)
+    print(f"Found {len(memory_ops)} memory operations")
     
-    if null_derefs:
-        print(f"CRITICAL: FOUND {len(null_derefs)} DIRECT NULL POINTER DEREFERENCES:")
-        for i, deref in enumerate(null_derefs, 1):
-            print(f"  {i}. {deref['type']} at block {deref['block']}")
-            print(f"     Instruction: {deref['instruction']}")
-            print(f"     Memory address: {hex(deref['address'])}")
+    # Phase 3: Arithmetic operations
+    print("\n=== Phase 3: Arithmetic Operations Analysis ===")
+    arithmetic_ops = analyze_arithmetic_operations(ircfg_map)
+    print(f"Found {len(arithmetic_ops)} arithmetic operations")
     
-    if potential_nulls:
-        print(f"WARNING: Found {len(potential_nulls)} potential null-related operations:")
-        null_assigns = [p for p in potential_nulls if p['type'] == 'null_assignment']
-        reg_derefs = [p for p in potential_nulls if p['type'] == 'register_deref']
+    # Phase 4: Comparisons
+    print("\n=== Phase 4: Comparison Analysis ===")
+    comparisons = analyze_comparisons(ircfg_map)
+    print(f"Found {len(comparisons)} comparison operations")
+    
+    # Phase 5: Function calls
+    print("\n=== Phase 5: Function Call Analysis ===")
+    function_calls = analyze_function_calls(asm_cfg_map)
+    print(f"Found {len(function_calls)} function calls")
+    
+    # Phase 6: Pattern detection
+    print("\n=== Phase 6: Vulnerability Pattern Detection ===")
+    vulnerabilities = detect_dangerous_patterns(memory_ops, arithmetic_ops, comparisons, function_calls)
+    
+    print(f"\nGENERIC VULNERABILITY REPORT:")
+    print(f"Found {len(vulnerabilities)} potential issues")
+    
+    # Group by severity
+    high_sev = [v for v in vulnerabilities if v['severity'] == 'HIGH']
+    medium_sev = [v for v in vulnerabilities if v['severity'] == 'MEDIUM']
+    low_sev = [v for v in vulnerabilities if v['severity'] == 'LOW']
+    info_sev = [v for v in vulnerabilities if v['severity'] == 'INFO']
+    
+    if high_sev:
+        print(f"\nHIGH SEVERITY ({len(high_sev)} issues):")
+        for vuln in high_sev:
+            print(f"  - {vuln['type']}: {vuln['details']['block']}")
+    
+    if medium_sev:
+        print(f"\nMEDIUM SEVERITY ({len(medium_sev)} issues):")
+        for vuln in medium_sev[:10]:  # Show first 10
+            print(f"  - {vuln['type']}: {vuln['details'].get('instruction', vuln['details'])}")
+    
+    if low_sev:
+        print(f"\nLOW SEVERITY ({len(low_sev)} issues):")
+        print(f"  - {len(low_sev)} arithmetic operations found")
+    
+    if info_sev:
+        print(f"\nINFORMATIONAL ({len(info_sev)} items):")
+        constants = set()
+        for vuln in info_sev:
+            if 'constant_value' in vuln:
+                constants.add(vuln['constant_value'])
         
-        if null_assigns:
-            print(f"   - {len(null_assigns)} null assignments to registers")
-        if reg_derefs:
-            print(f"   - {len(reg_derefs)} memory dereferences through registers")
-    
-    # Phase 3: Find dangerous operations
-    print("\n=== Phase 3: General Dangerous Operation Detection ===")
-    dangerous_ops = find_dangerous_memory_operations(ircfg_map)
-    
-    for op in dangerous_ops:
-        print(f"ALERT {op['severity']} - {op['type']}")
-        if 'address' in op:
-            print(f"   Memory address: {hex(op['address'])}")
-        if 'register' in op:
-            print(f"   Through register: {op['register']}")
-        print(f"   Location: Block {op['block']} in CFG {hex(op['cfg_addr'])}")
-    
-    # Phase 4: Conditional analysis
-    print(f"\n=== Phase 4: Conditional Path Analysis ===")
-    conditional_paths = find_conditional_paths(ircfg_map)
-    
-    print(f"Found {len(conditional_paths)} conditional operations:")
-    for i, cond in enumerate(conditional_paths[:10]):  # Show first 10
-        if 'operation' in cond:
-            print(f"  {i+1}. {cond['operation']} operation with operands: {cond['operands']}")
-        else:
-            print(f"  {i+1}. Conditional branch in block {cond['block']}")
-    
-    # Phase 5: Data flow analysis
-    print(f"\n=== Phase 5: Data Flow Analysis ===")
-    data_flows, register_assignments = trace_data_flow(ircfg_map)
-    
-    # Phase 6: Vulnerability correlation  
-    print(f"\n=== Phase 6: Vulnerability Analysis ===")
-    vulnerabilities = correlate_vulnerabilities(dangerous_ops, conditional_paths, data_flows)
-    
-    # Combine all findings
-    all_vulnerabilities = vulnerabilities.copy()
-    
-    # Add direct null dereferences as high-priority vulnerabilities
-    for null_deref in null_derefs:
-        all_vulnerabilities.append({
-            'dangerous_operation': null_deref,
-            'triggering_conditions': [],
-            'vulnerability_type': 'direct_null_dereference'
-        })
-    
-    print(f"\nVULNERABILITY ANALYSIS REPORT:")
-    print(f"VULNERABILITY ANALYSIS REPORT:")
-    print(f"Found {len(all_vulnerabilities)} potential vulnerabilities")
-    
-    for i, vuln in enumerate(all_vulnerabilities, 1):
-        dangerous_op = vuln['dangerous_operation']
-        print(f"\n--- Vulnerability #{i} ---")
-        print(f"Type: {vuln['vulnerability_type']}")
-        if 'severity' in dangerous_op:
-            print(f"Severity: {dangerous_op['severity']}")
-        print(f"Location: Block {dangerous_op['block']}")
-        print(f"Operation: {dangerous_op['type']}")
-        
-        if vuln['triggering_conditions']:
-            print("Triggering conditions:")
-            for cond in vuln['triggering_conditions']:
-                if 'operands' in cond:
-                    print(f"  - {cond['operation']} with operands: {cond['operands']}")
-                elif 'condition' in cond:
-                    print(f"  - Conditional: {cond['condition']}")
-            print("This is a CONDITIONAL vulnerability")
-        else:
-            if vuln['vulnerability_type'] == 'direct_null_dereference':
-                print("This is a DIRECT NULL POINTER DEREFERENCE")
-            else:
-                print("This appears to be an UNCONDITIONAL vulnerability")
+        print(f"  - Found comparisons with constants: {sorted(list(constants))}")
     
     # Generate output files
     try:
@@ -394,17 +326,13 @@ def main():
         for blocks in viewvalues(asm_cfg_map):
             full_cfg += blocks
         
-        with open('vulnerability_analysis.dot', 'w') as f:
+        with open('generic_analysis.dot', 'w') as f:
             f.write(full_cfg.dot(offset=True))
-        print(f"SUCCESS: Control flow graph saved to vulnerability_analysis.dot")
+        print(f"\nSUCCESS: Control flow graph saved to generic_analysis.dot")
     except Exception as e:
         print(f"ERROR: Could not generate CFG: {e}")
     
     print(f"\n=== Analysis Complete ===")
-    if vulnerabilities:
-        print("ALERT: VULNERABILITIES DETECTED - Manual review recommended")
-    else:
-        print("INFO: No obvious vulnerabilities found in static analysis")
 
 if __name__ == "__main__":
     main()
