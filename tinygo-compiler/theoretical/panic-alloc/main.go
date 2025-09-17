@@ -8,7 +8,7 @@ import (
 
 func allocate(sizeMB int) []byte {
 	// Convert MB to bytes (v2: I removed "* 1024 * 1024" for faster computation)
-	sizeBytes := sizeMB
+	sizeBytes := sizeMB * 1024 * 1024
 
 	// This will call runtime.alloc internally
 	// TinyGo heapMaxSize = 1GB, so anything close to that should panic
