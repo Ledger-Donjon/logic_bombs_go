@@ -11,53 +11,52 @@ import (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) == 0 {
-		println("Usage: ./bin <leaf1> <leaf2> ... --indices <i1> <i2> ...")
-		return
+	argsLen := len(args)
+	
+	if argsLen == 0 {
+		os.Stderr.WriteString("Usage: ./bin <leaf1> <leaf2> ... --indices <i1> <i2> ...\n")
+		os.Exit(1)
 	}
 
-	// Split at "--indices"
-	split := len(args)
-	for i, arg := range args {
-		if arg == "--indices" {
+	// Single pass to find split
+	split := -1
+	for i := 0; i < argsLen; i++ {
+		if args[i] == "--indices" {
 			split = i
 			break
 		}
 	}
 
-	var tree [][32]byte
+	if split == -1 || split == argsLen-1 {
+		os.Stderr.WriteString("Error: --indices flag required with at least one index\n")
+		os.Exit(1)
+	}
+
+	// Exact capacity allocation
+	tree := make([][32]byte, split)
+	indicesCount := argsLen - split - 1
+	indices := make([]int, indicesCount)
+
+	// Direct assignment without append
 	for i := 0; i < split; i++ {
-		h := sha256.Sum256([]byte(args[i]))
-		tree = append(tree, h)
+		tree[i] = sha256.Sum256([]byte(args[i]))
 	}
 
-	var indices []int
-	for i := split + 1; i < len(args); i++ {
-		idx, err := strconv.Atoi(args[i])
+	// Parse indices with bounds check
+	for i := 0; i < indicesCount; i++ {
+		idx, err := strconv.Atoi(args[split+1+i])
 		if err != nil {
-			println("Invalid index:", args[i])
-			return
+			fmt.Fprintf(os.Stderr, "Invalid index: %s\n", args[split+1+i])
+			os.Exit(1)
 		}
-		indices = append(indices, idx)
+		indices[i] = idx
 	}
-
-	if len(indices) == 0 {
-		println("Error: At least one index must be provided")
-		return
-	}
-
-	println("Tree length:", len(tree))
-	println("Indices:")
-	for _, i := range indices {
-		fmt.Printf("%d ", i)
-	}
-	println()
 
 	proof, err := merkle.GetMultiProof(tree, indices...)
 	if err != nil {
-		println("Error:", err.Error())
-		return
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
-	println("Proof OK with", len(proof.Proof), "elements")
+	fmt.Fprintf(os.Stdout, "Proof OK with %d elements\n", len(proof.Proof))
 }
