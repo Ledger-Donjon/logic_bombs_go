@@ -1,9 +1,9 @@
 # Results
 
-This section highlights the results from benchmarking several concolic execution tools : Zorya, BINSEC, MIASM, radius2, Owi.
+This section highlights the results from benchmarking several concolic execution tools: Zorya, BINSEC, MIASM, radius2, and Owi.
 
 The details of the logs from the executions can be found in each project subdirectory ```path/to/project/*_findings```.
-For Zorya tool especially, the summaries of the benchmarks can be found below:
+For the Zorya tool especially, the summaries of the benchmarks can be found below:
 
 # After Zorya optimizations
 ### Observed detection times of inputs leading to a panic with the tool Zorya
@@ -129,7 +129,7 @@ For Zorya tool especially, the summaries of the benchmarks can be found below:
 | Starting address | Average Time (s) |
 |---|---:|
 | Average main.main | 53.46613333 |
-| Average function: coreEngine() | 55.85953333 |
+| Average function: shift() | 55.85953333 |
 
 
 | Binary | Inputs | Starting address | Time 1 (s) | Time 2 (s) | Time 3 (s) | Time 4 (s) | Time 5 (s) | Average Time (s) |
@@ -137,16 +137,16 @@ For Zorya tool especially, the summaries of the benchmarks can be found below:
 | omni-network | a b c --indices 1 | main.main | >7200 |  |  |  |  | >7200 |
 |  |  | function: GetMultiProof() | 271.303 | 271.293 | 270.628 | 270.364 | 270.662 | 270.85 |
 |  | a b c d e --indices 3 | main.main | >7200 |  |  |  |  | >7200 |
-|  |  | function: index() | 270.753 | 270.105 | 270.692 | 270.942 | 271.042 | 270.7068 |
+|  |  | function: GetMultiProof() | 270.753 | 270.105 | 270.692 | 270.942 | 271.042 | 270.7068 |
 |  | a b c d e f g --indices 5 | main.main | >7200 |  |  |  |  | >7200 |
-|  |  | function: index() | 277.399 | 277.955 | 277.227 | 278.543 | 276.879 | 277.6006 |
+|  |  | function: GetMultiProof() | 277.399 | 277.955 | 277.227 | 278.543 | 276.879 | 277.6006 |
 
 | Starting address | Average Time (s) |
 |---|---:|
 | Average main.main | >7200 |
-| Average function: crash() | 273.0524667 |
+| Average function: GetMultiProof() | 273.0524667 |
 
-### To replicate the zorya findings, use these commands:
+### To replicate the Zorya findings, use these commands:
 
 ```
 // The condition to not panic is that arg is different from "K"
@@ -156,7 +156,7 @@ zorya /home/karolina-gorna/Documents/go-exploits-database/tinygo-compiler/theore
 
 **************************************
 
-// The condition to not panic is that idex is equal to 0, 1 or 2 to not have an index out-of-bound
+// The condition to not panic is that index is equal to 0, 1, or 2 to not have an index out-of-bounds
 zorya /home/karolina-gorna/Documents/go-exploits-database/tinygo-compiler/theoretical/panic-index/panic-index --mode main 0x000000000022c180 --lang go --compiler tinygo --arg "1" --negate-path-exploration
 
 zorya /home/karolina-gorna/Documents/go-exploits-database/tinygo-compiler/theoretical/panic-index/panic-index --mode function 0x22c110 --lang go --compiler tinygo --arg "1" --negate-path-exploration

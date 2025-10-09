@@ -1,24 +1,24 @@
 # A Dataset of Go Language Logic Bombs
 
 ## Project Overview
-This project is directly inspired from [logic_bomb](https://github.com/hxuhack/logic_bombs).
-It includes a set of small programs with logic bombs.  The logic bomb can be triggered when certain conditions are met. 
-We release the dataset for benchmarking purposes.  Any dynamic testing tools (especially symbolic execution) can employ the dataset to benchmark their capabilities. 
-The dataset is originally realeased with our paper:
+This project is directly inspired by [logic_bomb](https://github.com/hxuhack/logic_bombs).
+It includes a set of small programs with logic bombs. The logic bomb can be triggered when certain conditions are met. 
+We release the dataset for benchmarking purposes. Any dynamic testing tools (especially symbolic execution) can employ the dataset to benchmark their capabilities. 
+The dataset was originally released with our paper:
 
-## How to use it ?
+## How to use it?
 You can use the binaries or their source codes as they are to test if your symbolic execution tool can detect the bomb.
 
 ## Current benchmark
 Several results have already been shared in the ```/results``` section.
-They include configuration files and logs from the execution of the following tools
-- [Zorya](https://github.com/Ledger-Donjon/zorya),
-- [BINSEC](https://github.com/binsec),
-- [MIASM](https://github.com/cea-sec/miasm),
-- [radius2](https://github.com/aemmitt-ns/radius2),
-- [Owi](https://github.com/OCamlPro/owi).
+They include configuration files and logs from the execution of the following tools:
+- [Zorya](https://github.com/Ledger-Donjon/zorya)
+- [BINSEC](https://github.com/binsec)
+- [MIASM](https://github.com/cea-sec/miasm)
+- [radius2](https://github.com/aemmitt-ns/radius2)
+- [Owi](https://github.com/OCamlPro/owi)
 
-Others tools like KLEE, Haybale or SymSan have not been bentchmarked because their intermediate representation is LLVM IR, and the Go compiler for LLVM [gollvm](https://go.googlesource.com/gollvm/) in not maintained.
+Other tools like KLEE, Haybale, or SymSan have not been benchmarked because their intermediate representation is LLVM IR, and the Go compiler for LLVM [gollvm](https://go.googlesource.com/gollvm/) is not maintained.
 
 ## Details of the bombs
 Below we list these programs and the conditions to trigger each bomb. 
