@@ -10,8 +10,7 @@
 // Conclusion: The panics are caused by radius2’s incomplete support for TinyGo binaries’ memory layout
 // and argument handling, not by any error in the `omni-vuln4` binary itself.
 
-$ radius2 -p ./omni-vuln4 -a 0x00000000
-00230530
+$ radius2 -p ./omni-vuln4 -a 0x0000000000230530
 thread 'main' panicked at /home/kgorna/.cargo/registry/src/index.crates.io-6f17d22bba15001f/radius2-1.0.28/src/processor.rs:758:52:
 called `Option::unwrap()` on a `None` value
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
