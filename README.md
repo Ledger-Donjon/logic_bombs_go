@@ -1,7 +1,7 @@
 # A Dataset of Go Language Logic Bombs
 
 ## Project Overview
-This project is directly inspired by [logic_bomb](https://github.com/hxuhack/logic_bombs).
+This project is directly inspired by [logic_bombs](https://github.com/hxuhack/logic_bombs).
 It includes a set of small programs with logic bombs. The logic bomb can be triggered when certain conditions are met. 
 We release the dataset for benchmarking purposes. Any dynamic testing tools (especially symbolic execution) can employ the dataset to benchmark their capabilities. 
 The dataset was originally released with our paper:
