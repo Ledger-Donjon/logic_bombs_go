@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
 )
 
 func crash(arg byte) {
@@ -14,7 +13,6 @@ func crash(arg byte) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(1)
 	if len(os.Args) != 2 {
 		fmt.Println("Usage: ./crashme [char]")
 		return

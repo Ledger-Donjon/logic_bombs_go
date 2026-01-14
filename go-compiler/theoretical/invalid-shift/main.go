@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
 )
 
 func shift(s string) {
@@ -14,7 +13,6 @@ func shift(s string) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(1)
 	if len(os.Args) != 2 {
 		fmt.Println("Usage: ./invalid-shift [byte]")
 		return
